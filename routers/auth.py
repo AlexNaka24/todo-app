@@ -7,8 +7,9 @@ from fastapi import Depends
 import models
 from user_request import UserRequest
 from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordRequestForm
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -21,7 +22,16 @@ def get_db():
         
 db_dependency = Annotated[Session, Depends(get_db)]
 
-@router.post("/auth/createuser/", status_code=status.HTTP_201_CREATED)
+def authenticate_user(db: Session, username: str, password: str):
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        return False
+    if not bcrypt_context.verify(password, user.hashed_password):
+        return False
+    return user
+
+# POST users
+@router.post("/createuser", status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency, user_request: UserRequest):
     create_user_model = models.User(
         username=user_request.username,
@@ -37,11 +47,21 @@ async def create_user(db: db_dependency, user_request: UserRequest):
     db.refresh(create_user_model)
     return {"message": "User created successfully", "user": create_user_model}
 
-@router.get("/auth/users/", status_code=status.HTTP_200_OK)
+# POST token
+@router.post("/token")
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        return {"message": "Incorrect username or password"}
+    return {"message": "Login successful"}
+
+# GET users
+@router.get("/users", status_code=status.HTTP_200_OK)
 async def read_users(db: db_dependency):
     return db.query(models.User).all()
 
-@router.delete("/auth/deleteuser/{user_id}", status_code=status.HTTP_200_OK)
+# DELETE users by userid
+@router.delete("/deleteuser/{user_id}", status_code=status.HTTP_200_OK)
 async def delete_user(db: db_dependency, user_id: int):
     user_model = db.query(models.User).filter(models.User.id == user_id).first()
     if user_model is not None:
