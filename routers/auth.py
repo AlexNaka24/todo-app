@@ -1,3 +1,4 @@
+from datetime import timedelta, datetime, timezone
 from fastapi import APIRouter
 from starlette import status
 from database import SessionLocal
@@ -5,11 +6,17 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from fastapi import Depends
 import models
-from user_request import UserRequest
+from schemas.user_request import UserRequest
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt
+from schemas.token_squema import Token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+SECRET_KEY = "234654gf8768fgf679867jgfsad1231254345sdfgds67532231dfghj67ui4"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -30,6 +37,12 @@ def authenticate_user(db: Session, username: str, password: str):
         return False
     return user
 
+def create_access_token(username: str, user_id: int, expires_delta: timedelta):
+    encode = {"sub": username, "id": user_id}
+    expires = datetime.now(timezone.utc) + expires_delta
+    encode.update({"exp": expires})
+    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+
 # POST users
 @router.post("/createuser", status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency, user_request: UserRequest):
@@ -48,12 +61,13 @@ async def create_user(db: db_dependency, user_request: UserRequest):
     return {"message": "User created successfully", "user": create_user_model}
 
 # POST token
-@router.post("/token")
+@router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         return {"message": "Incorrect username or password"}
-    return {"message": "Login successful"}
+    token = create_access_token(user.username, user.id, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    return {"access_token": token, "token_type": "bearer"}
 
 # GET users
 @router.get("/users", status_code=status.HTTP_200_OK)

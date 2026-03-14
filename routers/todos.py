@@ -6,7 +6,7 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 import models
-from todo_request import TodoRequest
+from schemas.todo_request import TodoRequest
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
