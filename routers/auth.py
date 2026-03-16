@@ -68,7 +68,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth_bearer)], db: db_
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
 
 # POST users
-@router.post("/createuser", status_code=status.HTTP_201_CREATED)
+@router.post("/create-user", status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency, user_request: UserRequest):
     create_user_model = models.User(
         username=user_request.username,
@@ -92,18 +92,3 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
     token = create_access_token(user.username, user.id, role=user.role, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     return {"access_token": token, "token_type": "bearer"}
-
-# GET users
-@router.get("/users", status_code=status.HTTP_200_OK)
-async def read_users(db: db_dependency):
-    return db.query(models.User).all()
-
-# DELETE users by userid
-@router.delete("/deleteuser/{user_id}", status_code=status.HTTP_200_OK)
-async def delete_user(db: db_dependency, user_id: int):
-    user_model = db.query(models.User).filter(models.User.id == user_id).first()
-    if user_model is not None:
-        db.delete(user_model)
-        db.commit()
-        return {"message": f"User with id {user_id} deleted successfully"}
-    raise HTTPException(status_code=404, detail=f"User with id {user_id} not found for deletion")

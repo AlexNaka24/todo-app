@@ -28,9 +28,13 @@ db_dependency = Annotated[Session, Depends(get_db)]
 # Dependency for current user from token
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
-# GET all todos
+# GET all todos from your profile or all todos if you are an admin
 @router.get("", status_code=status.HTTP_200_OK)
 async def read_all(db: db_dependency, user: user_dependency):
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized to access todos")
+    if user.get("role") == "admin":
+        return db.query(models.Todos).all()
     return db.query(models.Todos).filter(models.Todos.owner_id == user.get("id")).all()
 
 # GET todos by id
@@ -45,7 +49,7 @@ async def read_by_id(db: db_dependency, user: user_dependency, todo_id: int = Pa
 
 # GET todos by priority
 @router.get("/priority/{todo_priority}", status_code=status.HTTP_200_OK)
-async def read_by_priority(db: db_dependency, user: user_dependency, todo_priority: int = Path(le=6, gt=0)):
+async def read_by_priority(db: db_dependency, user: user_dependency, todo_priority: int = Path(le=5, gt=0)):
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized to access this todo")
     todos = db.query(models.Todos).filter(models.Todos.priority == todo_priority, models.Todos.owner_id == user.get("id")).all()
@@ -54,7 +58,7 @@ async def read_by_priority(db: db_dependency, user: user_dependency, todo_priori
     raise HTTPException(status_code=404, detail=f"Todo with priority {todo_priority} not found")
 
 # POST todos
-@router.post("/createtodo", status_code=status.HTTP_201_CREATED)
+@router.post("/create-todo", status_code=status.HTTP_201_CREATED)
 async def create_todo(db: db_dependency, user: user_dependency, todo_request: TodoRequest):
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized to create a todo")   
@@ -65,7 +69,7 @@ async def create_todo(db: db_dependency, user: user_dependency, todo_request: To
     return {"message": f"Todo with id {todo_model.id} created successfully", "todo": todo_model}
 
 # PUT todos
-@router.put("/updatetodo/{todo_id}", status_code=status.HTTP_200_OK)
+@router.put("/update-todo/{todo_id}", status_code=status.HTTP_200_OK)
 async def update_todo(db: db_dependency, user: user_dependency, todo_request: TodoRequest, todo_id: int = Path(gt=0)):
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized to update this todo")
@@ -81,7 +85,7 @@ async def update_todo(db: db_dependency, user: user_dependency, todo_request: To
     raise HTTPException(status_code=404, detail=f"Todo with id {todo_id} not found for updates")
 
 # DELETE todos
-@router.delete("/deletetodo/{todo_id}", status_code=status.HTTP_200_OK)
+@router.delete("/delete-todo/{todo_id}", status_code=status.HTTP_200_OK)
 async def delete_todo(db: db_dependency, user: user_dependency, todo_id: int = Path(gt=0)):
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized to delete this todo")
