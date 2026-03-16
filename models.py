@@ -1,6 +1,6 @@
+# IMPORTS
 from database import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
-
 
 # This is the model of the users table
 class User(Base):
