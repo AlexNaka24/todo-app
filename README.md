@@ -1,6 +1,6 @@
 # ✅ Todo App API
 
-A fully-featured **RESTful API** for managing personal todo lists, built with **FastAPI** and **SQLite**. Supports JWT-based authentication, role-based access control, and full CRUD operations.
+A fully-featured **RESTful API** for managing personal todo lists, built with **FastAPI** and **PostgreSQL**. Supports JWT-based authentication, role-based access control, and full CRUD operations.
 
 ---
 
@@ -10,7 +10,8 @@ A fully-featured **RESTful API** for managing personal todo lists, built with **
 |-------|-----------|
 | Framework | [FastAPI](https://fastapi.tiangolo.com/) |
 | Language | Python 3.11+ |
-| Database | SQLite (via SQLAlchemy ORM) |
+| Database | PostgreSQL (via SQLAlchemy ORM) |
+| Migrations | Alembic |
 | Auth | JWT (JSON Web Tokens) with `python-jose` |
 | Password Hashing | `passlib` with `bcrypt` |
 | Validation | Pydantic v2 |
@@ -25,16 +26,23 @@ todo-app/
 ├── main.py                  # App entry point, router registration
 ├── database.py              # SQLAlchemy engine, session, and Base
 ├── models.py                # ORM models (User, Todos)
+├── alembic.ini              # Alembic configuration
+├── alembic/
+│   └── versions/            # Migration scripts
 ├── routers/
 │   ├── auth.py              # Registration, login, JWT logic
 │   ├── todos.py             # CRUD operations for todos
 │   ├── users.py             # Profile and password management
 │   └── admin.py             # Admin-only endpoints
-└── schemas/
-    ├── todo_request.py      # Pydantic schema for todo creation/update
-    ├── user_request.py      # Pydantic schema for user registration
-    ├── user_verification.py # Pydantic schema for password change
-    └── token_squema.py      # Pydantic schema for JWT token response
+├── schemas/
+│   ├── todo_request.py      # Pydantic schema for todo creation/update
+│   ├── user_request.py      # Pydantic schema for user registration
+│   ├── user_verification.py # Pydantic schema for password change
+│   └── token_squema.py      # Pydantic schema for JWT token response
+├── test/
+│   └── test_main.py         # Tests
+├── conftest.py              # pytest configuration
+└── .env                     # Environment variables (not committed)
 ```
 
 ---
@@ -60,17 +68,48 @@ source .venv/bin/activate
 
 ### 3. Install dependencies
 ```bash
-pip install fastapi uvicorn sqlalchemy passlib[bcrypt] python-jose[cryptography]
+pip install fastapi uvicorn sqlalchemy psycopg2-binary alembic python-dotenv passlib[bcrypt] python-jose[cryptography]
 ```
 
-### 4. Run the application
+> ⚠️ **Note on bcrypt compatibility:** `passlib 1.7.4` is incompatible with `bcrypt >= 4.0.0`. Install a compatible version:
+> ```bash
+> pip install "bcrypt==3.2.2"
+> ```
+
+### 4. Configure the database
+
+Create a `.env` file in the project root:
+```env
+DATABASE_URL="postgresql://your_user:your_password@localhost:5432/your_db_name"
+```
+
+#### Option A — Run PostgreSQL with Docker (recommended)
+```bash
+docker run --name todo-postgres \
+  -e POSTGRES_USER=your_user \
+  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_DB=your_db_name \
+  -v /your/local/path:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  -d postgres
+```
+
+#### Option B — Use an existing PostgreSQL installation
+Make sure the database exists and update `.env` accordingly.
+
+### 5. Apply database migrations
+```bash
+alembic upgrade head
+```
+
+### 6. Run the application
 ```bash
 uvicorn main:app --reload
 ```
 
 The API will be available at **http://127.0.0.1:8000**
 
-### 5. Interactive docs
+### 7. Interactive docs
 FastAPI automatically generates interactive documentation:
 - **Swagger UI** → http://127.0.0.1:8000/docs
 - **ReDoc** → http://127.0.0.1:8000/redoc
@@ -90,6 +129,7 @@ FastAPI automatically generates interactive documentation:
 | hashed_password | STRING | — |
 | role | STRING | `"admin"` or `"user"` |
 | is_active | BOOLEAN | default `true` |
+| phone_number | STRING | nullable |
 
 ### `todos` table
 | Column | Type | Constraints |
@@ -135,7 +175,8 @@ Content-Type: application/json
   "email": "john@example.com",
   "password": "secret123",
   "role": "user",
-  "is_active": true
+  "is_active": true,
+  "phone_number": "1234567890"
 }
 ```
 
@@ -448,6 +489,35 @@ Authorization: Bearer <admin_token>
 - JWT tokens are signed with a secret key using the **HS256** algorithm.
 - Each todo is scoped to its owner — users can only access their own data.
 - Admin role grants elevated access but is not automatically assigned; it must be set explicitly during user creation.
+- The `.env` file is excluded from version control via `.gitignore` to protect database credentials.
+
+---
+
+## 🗃️ Database Migrations
+
+This project uses **Alembic** to manage schema changes.
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Roll back the last migration
+alembic downgrade -1
+
+# Check current migration status
+alembic current
+
+# Create a new migration (auto-detect model changes)
+alembic revision --autogenerate -m "description of change"
+```
+
+---
+
+## 🧪 Running Tests
+
+```bash
+pytest test/
+```
 
 ---
 

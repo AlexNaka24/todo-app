@@ -83,7 +83,7 @@ async def create_user(db: db_dependency, user_request: UserRequest):
     db.add(create_user_model)
     db.commit()
     db.refresh(create_user_model)
-    return {"message": "User created successfully", "user": create_user_model}
+    return {"message": "User created successfully"}
 
 # POST token
 @router.post("/token", response_model=Token, status_code=status.HTTP_200_OK)
